@@ -84,6 +84,7 @@ event-management-system/
 ├── event.py                 # Main application (all features)
 ├── requirements.txt         # Python dependencies
 ├── README.md                # This file
+├── LICENSE                  # MIT License
 ├── config.json              # Application configuration (auto-generated)
 ├── prompts.json             # AI prompts template (auto-generated)
 ├── event_management.db      # SQLite database (auto-generated)
@@ -127,4 +128,4 @@ All tables use `ON DELETE CASCADE` to maintain referential integrity.
 
 ## License
 
-This project is open source and available for personal and educational use.
+This project is licensed under the [MIT License](LICENSE).
