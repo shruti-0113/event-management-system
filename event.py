@@ -428,14 +428,53 @@ def get_float(message: str) -> Optional[float]:
             print(f"{Colors.RED}Please enter a valid amount.{Colors.END}")
 
 
-def get_choice(title: str, options: list) -> Optional[str]:
+def get_choice(title: str, options: list, page_size: int = 7) -> Optional[str]:
     """
     Display a numbered menu and return the selected option string.
+    Automatically paginates when options exceed page_size.
     Returns None if the user types an exit command.
     """
-    print(f"\n{Colors.BOLD}{title}{Colors.END}")
-    for i, option in enumerate(options, start=1):
-        print(f"  {Colors.CYAN}{i}.{Colors.END} {option}")
+    total = len(options)
+    if total <= page_size:
+        print(f"\n{Colors.BOLD}{title}{Colors.END}")
+        for i, option in enumerate(options, start=1):
+            print(f"  {Colors.CYAN}{i}.{Colors.END} {option}")
+    else:
+        total_pages = (total + page_size - 1) // page_size
+        page = 0
+        while True:
+            start = page * page_size
+            end = min(start + page_size, total)
+            print(f"\n{Colors.BOLD}{title}{Colors.END}  "
+                  f"{Colors.YELLOW}[Page {page + 1}/{total_pages}]{Colors.END}")
+            for i, option in enumerate(options[start:end], start=start + 1):
+                print(f"  {Colors.CYAN}{i}.{Colors.END} {option}")
+            nav = []
+            if page > 0:
+                nav.append(f"{Colors.CYAN}p.{Colors.END} Previous")
+            if page < total_pages - 1:
+                nav.append(f"{Colors.CYAN}n.{Colors.END} Next")
+            if nav:
+                print(f"  {Colors.GREEN}{'   '.join(nav)}{Colors.END}")
+
+            while True:
+                choice = get_input("\nSelect Option : ")
+                if choice is None:
+                    return None
+                if choice.lower() == "n" and page < total_pages - 1:
+                    page += 1
+                    break
+                if choice.lower() == "p" and page > 0:
+                    page -= 1
+                    break
+                try:
+                    choice = int(choice)
+                    if 1 <= choice <= total:
+                        return options[choice - 1]
+                except ValueError:
+                    pass
+                print(f"{Colors.RED}Invalid choice. Try again.{Colors.END}")
+        return None
 
     while True:
         choice = get_input("\nSelect Option : ")
@@ -443,7 +482,7 @@ def get_choice(title: str, options: list) -> Optional[str]:
             return None
         try:
             choice = int(choice)
-            if 1 <= choice <= len(options):
+            if 1 <= choice <= total:
                 return options[choice - 1]
         except ValueError:
             pass
@@ -2351,69 +2390,28 @@ def budget_expense_menu():
 
 
 # =============================================================================
-# SECTION 18: MAIN MENU
+# SECTION 18: PROGRESSIVE SUB-MENUS
 # =============================================================================
-# The primary entry point that ties all features together.
+# These menus group related operations under high-level categories
+# to keep the main menu limited and progressive.
 # =============================================================================
 
 
-def main_menu():
-    """
-    Main application loop. Displays the menu and routes user choices
-    to the appropriate functions.
-    """
+def events_menu():
+    """Sub-menu for event operations."""
     while True:
-        print_header()
+        print_section("EVENTS")
+        print(f"  {Colors.CYAN}1.{Colors.END} Create Event")
+        print(f"  {Colors.CYAN}2.{Colors.END} View All Events")
+        print(f"  {Colors.CYAN}3.{Colors.END} Select Event")
+        edit_hint = "" if CURRENT_EVENT else f" {Colors.YELLOW}(select an event first){Colors.END}"
+        print(f"  {Colors.CYAN}4.{Colors.END} Edit Event{edit_hint}")
+        delete_hint = "" if CURRENT_EVENT else f" {Colors.YELLOW}(select an event first){Colors.END}"
+        print(f"  {Colors.CYAN}5.{Colors.END} Delete Event{delete_hint}")
+        print(f"  {Colors.CYAN}0.{Colors.END} Back")
 
-        # Show currently selected event
-        if CURRENT_EVENT:
-            print(
-                f"  {Colors.GREEN}Active Event: {CURRENT_EVENT['event_name']}{Colors.END}\n"
-            )
+        choice = input(f"\n  Enter Choice : ").strip()
 
-        # --- Event Management ---
-        print(f"  {Colors.BOLD}EVENT MANAGEMENT{Colors.END}")
-        print(f"  {Colors.CYAN} 1.{Colors.END} Create Event")
-        print(f"  {Colors.CYAN} 2.{Colors.END} View All Events")
-        print(f"  {Colors.CYAN} 3.{Colors.END} Select Event")
-        print(f"  {Colors.CYAN} 4.{Colors.END} Edit Event")
-        print(f"  {Colors.CYAN} 5.{Colors.END} Delete Event")
-
-        # --- AI Features ---
-        print(f"\n  {Colors.BOLD}AI FEATURES{Colors.END}")
-        print(f"  {Colors.CYAN} 6.{Colors.END} AI Features Menu")
-
-        # --- Program Management ---
-        print(f"\n  {Colors.BOLD}PROGRAM MANAGEMENT{Colors.END}")
-        print(f"  {Colors.CYAN} 7.{Colors.END} Create Program")
-        print(f"  {Colors.CYAN} 8.{Colors.END} View Programs")
-        print(f"  {Colors.CYAN} 9.{Colors.END} Delete Program")
-
-        # --- Guest Management ---
-        print(f"\n  {Colors.BOLD}GUEST MANAGEMENT{Colors.END}")
-        print(f"  {Colors.CYAN}10.{Colors.END} Guest Management Menu")
-
-        # --- Budget & Expenses ---
-        print(f"\n  {Colors.BOLD}BUDGET & EXPENSES{Colors.END}")
-        print(f"  {Colors.CYAN}11.{Colors.END} Budget & Expense Menu")
-
-        # --- Tasks ---
-        print(f"\n  {Colors.BOLD}TASKS{Colors.END}")
-        print(f"  {Colors.CYAN}12.{Colors.END} Task Management Menu")
-
-        # --- Export & Utilities ---
-        print(f"\n  {Colors.BOLD}EXPORT & UTILITIES{Colors.END}")
-        print(f"  {Colors.CYAN}13.{Colors.END} Export Data Menu")
-        print(f"  {Colors.CYAN}14.{Colors.END} Event Dashboard")
-        print(f"  {Colors.CYAN}15.{Colors.END} Backup Database")
-        print(f"  {Colors.CYAN}16.{Colors.END} Restore Database")
-
-        # --- Exit ---
-        print(f"\n  {Colors.CYAN} 0.{Colors.END} Exit")
-
-        choice = input(f"\n  {Colors.BOLD}Enter Choice : {Colors.END}").strip()
-
-        # --- Route to appropriate function ---
         if choice == "1":
             create_event()
         elif choice == "2":
@@ -2424,28 +2422,111 @@ def main_menu():
             edit_event()
         elif choice == "5":
             delete_event()
-        elif choice == "6":
-            ai_features_menu()
-        elif choice == "7":
+        elif choice in EXIT_COMMANDS:
+            break
+        else:
+            print_error("Invalid choice.")
+
+
+def programs_menu():
+    """Sub-menu for program operations."""
+    while True:
+        print_section("PROGRAMS")
+        print(f"  {Colors.CYAN}1.{Colors.END} Create Program")
+        print(f"  {Colors.CYAN}2.{Colors.END} View Programs")
+        print(f"  {Colors.CYAN}3.{Colors.END} Delete Program")
+        print(f"  {Colors.CYAN}0.{Colors.END} Back")
+
+        choice = input(f"\n  Enter Choice : ").strip()
+
+        if choice == "1":
             create_program()
-        elif choice == "8":
+        elif choice == "2":
             view_programs()
-        elif choice == "9":
+        elif choice == "3":
             delete_program()
-        elif choice == "10":
-            guest_menu()
-        elif choice == "11":
-            budget_expense_menu()
-        elif choice == "12":
-            task_menu()
-        elif choice == "13":
+        elif choice in EXIT_COMMANDS:
+            break
+        else:
+            print_error("Invalid choice.")
+
+
+def ai_tools_menu():
+    """Sub-menu combining AI features, export, and utility operations."""
+    while True:
+        print_section("AI & TOOLS")
+        print(f"  {Colors.CYAN}1.{Colors.END} AI Features")
+        print(f"  {Colors.CYAN}2.{Colors.END} Export Data")
+        print(f"  {Colors.CYAN}3.{Colors.END} Event Dashboard")
+        print(f"  {Colors.CYAN}4.{Colors.END} Backup Database")
+        print(f"  {Colors.CYAN}5.{Colors.END} Restore Database")
+        print(f"  {Colors.CYAN}0.{Colors.END} Back")
+
+        choice = input(f"\n  Enter Choice : ").strip()
+
+        if choice == "1":
+            ai_features_menu()
+        elif choice == "2":
             export_menu()
-        elif choice == "14":
+        elif choice == "3":
             event_dashboard()
-        elif choice == "15":
+        elif choice == "4":
             backup_database()
-        elif choice == "16":
+        elif choice == "5":
             restore_database()
+        elif choice in EXIT_COMMANDS:
+            break
+        else:
+            print_error("Invalid choice.")
+
+
+# =============================================================================
+# SECTION 19: MAIN MENU
+# =============================================================================
+# The primary entry point that ties all features together.
+# =============================================================================
+
+
+def main_menu():
+    """
+    Main application loop. Displays a limited set of top-level categories
+    and routes user choices to progressive sub-menus.
+    """
+    while True:
+        print_header()
+
+        # Show currently selected event
+        if CURRENT_EVENT:
+            print(
+                f"  {Colors.GREEN}Active Event: {CURRENT_EVENT['event_name']}{Colors.END}\n"
+            )
+
+        # --- Top-Level Categories (max 6 choices) ---
+        print(f"  {Colors.CYAN}1.{Colors.END} Events")
+        print(f"  {Colors.CYAN}2.{Colors.END} Programs")
+        print(f"  {Colors.CYAN}3.{Colors.END} Guests")
+        print(f"  {Colors.CYAN}4.{Colors.END} Budget & Expenses")
+        print(f"  {Colors.CYAN}5.{Colors.END} Tasks")
+        print(f"  {Colors.CYAN}6.{Colors.END} AI & Tools")
+
+        # --- Exit ---
+        print(f"\n  {Colors.CYAN}0.{Colors.END} Exit")
+
+        choice = input(f"\n  {Colors.BOLD}Enter Choice : {Colors.END}").strip()
+
+        # --- Route to sub-menu ---
+        if choice == "1":
+            events_menu()
+        elif choice == "2":
+            programs_menu()
+        elif choice == "3":
+            guest_menu()
+        elif choice == "4":
+            budget_expense_menu()
+        elif choice == "5":
+            task_menu()
+        elif choice == "6":
+            ai_tools_menu()
         elif choice == "0":
             # Auto-backup on exit if enabled
             if config.get("auto_backup", False):
