@@ -118,13 +118,20 @@ All tables use `ON DELETE CASCADE` to maintain referential integrity.
 
 ## Usage
 
-1. **Create an Event** — Start by creating your first event (option 1)
-2. **Select the Event** — Make it the active event (option 3)
-3. **Add Programs** — Create sub-events (option 7)
-4. **Manage Guests** — Build your guest list (option 10)
-5. **Track Budget** — Set up budget categories (option 11)
-6. **Use AI Features** — Get smart suggestions (option 6)
-7. **Export Data** — Share data as JSON/CSV (option 13)
+The main menu presents **6 categories** for a focused, progressive experience:
+
+1. **Events** (option 1) — Create, view, select, edit, or delete events
+2. **Programs** (option 2) — Create, view, or delete sub-programs
+3. **Guests** (option 3) — Add guests, update RSVP status
+4. **Budget & Expenses** (option 4) — Set up budget categories, log expenses
+5. **Tasks** (option 5) — Create and track preparation tasks
+6. **AI & Tools** (option 6) — AI features, export, dashboard, backup/restore
+
+**Getting started:**
+1. Go to **Events → Create Event** to create your first event
+2. Go to **Events → Select Event** to make it the active event
+3. Use other categories to manage programs, guests, budget, and tasks
+4. Use **AI & Tools → AI Features** for smart suggestions
 
 ## License
 
