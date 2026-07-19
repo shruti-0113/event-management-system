@@ -47,7 +47,7 @@ BACKUP_DIR = "backups"
 # -----------------------------------------------
 # AI Model Configuration
 # -----------------------------------------------
-OLLAMA_MODEL = "llama3.2"
+OLLAMA_MODEL = "gemma2:2b"
 
 # -----------------------------------------------
 # Event Types (predefined categories)
@@ -457,8 +457,15 @@ def get_choice(title: str, options: list, page_size: int = 7) -> Optional[str]:
             if nav:
                 print(f"  {Colors.GREEN}{'   '.join(nav)}{Colors.END}")
 
+            nav_hint = ""
+            if page > 0 and page < total_pages - 1:
+                nav_hint = ", n/p"
+            elif page > 0:
+                nav_hint = ", p"
+            elif page < total_pages - 1:
+                nav_hint = ", n"
             while True:
-                choice = get_input("\nSelect Option : ")
+                choice = get_input(f"\n  Select [1-{total}{nav_hint}] : ")
                 if choice is None:
                     return None
                 if choice.lower() == "n" and page < total_pages - 1:
@@ -477,7 +484,7 @@ def get_choice(title: str, options: list, page_size: int = 7) -> Optional[str]:
         return None
 
     while True:
-        choice = get_input("\nSelect Option : ")
+        choice = get_input(f"\n  Select [1-{total}] : ")
         if choice is None:
             return None
         try:
@@ -552,6 +559,117 @@ def clear_line():
 def pause():
     """Pause and wait for the user to press Enter."""
     input(f"\n{Colors.YELLOW}Press Enter to continue...{Colors.END}")
+
+
+# -----------------------------------------------
+# Dashboard Summary & Smart Suggestions
+# -----------------------------------------------
+
+def print_dashboard() -> Optional[str]:
+    """
+    Print a prominent, bordered dashboard before the main menu.
+    Returns the recommended option number (or None).
+    """
+    cursor.execute("SELECT COUNT(*) FROM events")
+    total_events = cursor.fetchone()[0]
+
+    border = "=" * 50
+    print(f"\n  {Colors.BOLD}{border}{Colors.END}")
+
+    if total_events == 0:
+        print(f"  {Colors.YELLOW}{Colors.BOLD}STATUS:{Colors.END}  "
+              f"No events in the database yet.")
+        print(f"  {Colors.GREEN}>> {Colors.BOLD}Create an event first!{Colors.END}")
+        print(f"     Pick option {Colors.GREEN}{Colors.BOLD}1{Colors.END} below.")
+        print(f"  {Colors.BOLD}{border}{Colors.END}")
+        return "1"
+
+    if CURRENT_EVENT is None:
+        print(f"  {Colors.YELLOW}{Colors.BOLD}STATUS:{Colors.END}  "
+              f"{total_events} event(s) found, none selected.")
+        print(f"  {Colors.GREEN}>> {Colors.BOLD}Select an event to start managing it!{Colors.END}")
+        print(f"     Pick option {Colors.GREEN}{Colors.BOLD}1{Colors.END} below "
+              f"> {Colors.GREEN}Select Event{Colors.END}.")
+        print(f"  {Colors.BOLD}{border}{Colors.END}")
+        return "1"
+
+    # --- Gather stats for the active event ---
+    eid = CURRENT_EVENT["event_id"]
+
+    cursor.execute("SELECT COUNT(*) FROM programs WHERE event_id = ?", (eid,))
+    n_programs = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM guests WHERE event_id = ?", (eid,))
+    n_guests = cursor.fetchone()[0]
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM guests WHERE event_id = ? "
+        "AND rsvp_status = 'Confirmed'",
+        (eid,),
+    )
+    n_confirmed = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM budgets WHERE event_id = ?", (eid,))
+    n_budget = cursor.fetchone()[0]
+
+    cursor.execute(
+        "SELECT SUM(amount) FROM expenses WHERE event_id = ?", (eid,)
+    )
+    total_spent = cursor.fetchone()[0] or 0
+
+    cursor.execute("SELECT COUNT(*) FROM tasks WHERE event_id = ?", (eid,))
+    n_tasks = cursor.fetchone()[0]
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM tasks WHERE event_id = ? AND status = 'Done'",
+        (eid,),
+    )
+    n_done = cursor.fetchone()[0]
+
+    # --- Print event name and stats ---
+    print(
+        f"  {Colors.GREEN}{Colors.BOLD}ACTIVE:{Colors.END}  "
+        f"{CURRENT_EVENT['event_name']} "
+        f"({CURRENT_EVENT['event_type']}, "
+        f"{CURRENT_EVENT['event_date']})"
+    )
+    print(
+        f"  Guests: {n_guests} added ({n_confirmed} confirmed)  |  "
+        f"Programs: {n_programs}  |  "
+        f"Tasks: {n_done}/{n_tasks} done  |  "
+        f"Spent: \u20b9{total_spent:,.2f} / "
+        f"\u20b9{CURRENT_EVENT['budget']:,.2f}"
+    )
+
+    # --- Determine the next best action ---
+    suggestion = None
+    suggested_option = None
+
+    if n_programs == 0:
+        suggestion = "Add programs to your event."
+        suggested_option = "2"
+    elif n_budget == 0:
+        suggestion = "Set up a budget breakdown."
+        suggested_option = "4"
+    elif n_guests == 0:
+        suggestion = "Add guests to your event."
+        suggested_option = "3"
+    elif n_tasks == 0:
+        suggestion = "Add preparation tasks."
+        suggested_option = "5"
+    elif n_done < n_tasks:
+        pending = n_tasks - n_done
+        suggestion = f"You have {pending} pending task(s)."
+        suggested_option = "5"
+
+    if suggestion:
+        print(
+            f"  {Colors.GREEN}>> {Colors.BOLD}NEXT: {suggestion} "
+            f"Pick option {Colors.BOLD}{suggested_option}{Colors.END}"
+        )
+
+    print(f"  {Colors.BOLD}{border}{Colors.END}")
+    return suggested_option
 
 
 # =============================================================================
@@ -680,7 +798,7 @@ def select_event() -> Optional[Dict[str, Any]]:
         print(f"  {Colors.CYAN}{index}.{Colors.END} {event[1]} ({event[2]})")
 
     while True:
-        choice = get_integer("\nSelect Event Number : ")
+        choice = get_integer(f"\n  Select Event [1-{len(events)}] : ")
         if choice is None:
             return None
 
@@ -950,7 +1068,7 @@ def select_program() -> Optional[Dict[str, Any]]:
         print(f"  {Colors.CYAN}{index}.{Colors.END} {prog[1]} ({prog[2]})")
 
     while True:
-        choice = get_integer("\nSelect Program Number : ")
+        choice = get_integer(f"\n  Select Program [1-{len(programs)}] : ")
         if choice is None:
             return None
 
@@ -1103,7 +1221,7 @@ def update_guest_rsvp():
     for index, guest in enumerate(guests, start=1):
         print(f"  {index}. {guest[1]} (Current: {guest[2]})")
 
-    choice = get_integer("\nSelect Guest Number : ")
+    choice = get_integer(f"\n  Select Guest [1-{len(guests)}] : ")
     if choice is None:
         return
 
@@ -1143,7 +1261,7 @@ def delete_guest():
     for index, guest in enumerate(guests, start=1):
         print(f"  {index}. {guest[1]}")
 
-    choice = get_integer("\nSelect Guest Number to Delete : ")
+    choice = get_integer(f"\n  Select Guest to Delete [1-{len(guests)}] : ")
     if choice is None:
         return
 
@@ -1167,7 +1285,7 @@ def guest_menu():
         print(f"  {Colors.CYAN}4.{Colors.END} Delete Guest")
         print(f"  {Colors.CYAN}0.{Colors.END} Back to Main Menu")
 
-        choice = input(f"\n  Enter Choice : ").strip()
+        choice = input(f"\n  Enter Choice [1-4] : ").strip()
 
         if choice == "1":
             add_guest()
@@ -1448,7 +1566,7 @@ def update_task_status():
     for index, task in enumerate(tasks, start=1):
         print(f"  {index}. {task[1]} [{task[2]}]")
 
-    choice = get_integer("\nSelect Task Number : ")
+    choice = get_integer(f"\n  Select Task [1-{len(tasks)}] : ")
     if choice is None:
         return
 
@@ -1488,7 +1606,7 @@ def delete_task():
     for index, task in enumerate(tasks, start=1):
         print(f"  {index}. {task[1]}")
 
-    choice = get_integer("\nSelect Task Number to Delete : ")
+    choice = get_integer(f"\n  Select Task to Delete [1-{len(tasks)}] : ")
     if choice is None:
         return
 
@@ -1512,7 +1630,7 @@ def task_menu():
         print(f"  {Colors.CYAN}4.{Colors.END} Delete Task")
         print(f"  {Colors.CYAN}0.{Colors.END} Back to Main Menu")
 
-        choice = input(f"\n  Enter Choice : ").strip()
+        choice = input(f"\n  Enter Choice [1-4] : ").strip()
 
         if choice == "1":
             add_task()
@@ -1668,7 +1786,7 @@ def export_menu():
         print(f"  {Colors.CYAN}3.{Colors.END} Export Tasks to CSV")
         print(f"  {Colors.CYAN}0.{Colors.END} Back to Main Menu")
 
-        choice = input(f"\n  Enter Choice : ").strip()
+        choice = input(f"\n  Enter Choice [1-3] : ").strip()
 
         if choice == "1":
             export_event_json()
@@ -2334,7 +2452,7 @@ def ai_features_menu():
         print(f"  {Colors.CYAN}8.{Colors.END}  AI Vendor Suggestions")
         print(f"  {Colors.CYAN}0.{Colors.END}  Back to Main Menu")
 
-        choice = input(f"\n  Enter Choice : ").strip()
+        choice = input(f"\n  Enter Choice [1-8] : ").strip()
 
         if choice == "1":
             ai_event_detail_plan()
@@ -2373,7 +2491,7 @@ def budget_expense_menu():
         print(f"  {Colors.CYAN}4.{Colors.END} View Expenses")
         print(f"  {Colors.CYAN}0.{Colors.END} Back to Main Menu")
 
-        choice = input(f"\n  Enter Choice : ").strip()
+        choice = input(f"\n  Enter Choice [1-4] : ").strip()
 
         if choice == "1":
             add_budget_category()
@@ -2410,7 +2528,7 @@ def events_menu():
         print(f"  {Colors.CYAN}5.{Colors.END} Delete Event{delete_hint}")
         print(f"  {Colors.CYAN}0.{Colors.END} Back")
 
-        choice = input(f"\n  Enter Choice : ").strip()
+        choice = input(f"\n  Enter Choice [1-5] : ").strip()
 
         if choice == "1":
             create_event()
@@ -2437,7 +2555,7 @@ def programs_menu():
         print(f"  {Colors.CYAN}3.{Colors.END} Delete Program")
         print(f"  {Colors.CYAN}0.{Colors.END} Back")
 
-        choice = input(f"\n  Enter Choice : ").strip()
+        choice = input(f"\n  Enter Choice [1-3] : ").strip()
 
         if choice == "1":
             create_program()
@@ -2462,7 +2580,7 @@ def ai_tools_menu():
         print(f"  {Colors.CYAN}5.{Colors.END} Restore Database")
         print(f"  {Colors.CYAN}0.{Colors.END} Back")
 
-        choice = input(f"\n  Enter Choice : ").strip()
+        choice = input(f"\n  Enter Choice [1-5] : ").strip()
 
         if choice == "1":
             ai_features_menu()
@@ -2495,11 +2613,8 @@ def main_menu():
     while True:
         print_header()
 
-        # Show currently selected event
-        if CURRENT_EVENT:
-            print(
-                f"  {Colors.GREEN}Active Event: {CURRENT_EVENT['event_name']}{Colors.END}\n"
-            )
+        # --- Prominent dashboard with recommendation ---
+        suggested = print_dashboard()
 
         # --- Top-Level Categories (max 6 choices) ---
         print(f"  {Colors.CYAN}1.{Colors.END} Events")
@@ -2512,7 +2627,11 @@ def main_menu():
         # --- Exit ---
         print(f"\n  {Colors.CYAN}0.{Colors.END} Exit")
 
-        choice = input(f"\n  {Colors.BOLD}Enter Choice : {Colors.END}").strip()
+        # --- Show recommendation in the input prompt ---
+        hint = f" (Recommended: {suggested})" if suggested else ""
+        choice = input(
+            f"\n  {Colors.BOLD}Enter Choice [1-6]{hint} : {Colors.END}"
+        ).strip()
 
         # --- Route to sub-menu ---
         if choice == "1":

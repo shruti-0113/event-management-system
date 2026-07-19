@@ -1,0 +1,6 @@
+{
+    "model": "gemma2:2b",
+    "currency": "\u20b9",
+    "theme": "default",
+    "auto_backup": true
+}
